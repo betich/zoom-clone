@@ -79,8 +79,8 @@ export function App() {
     /* idk how to implement this (subcollections) */
 
     const callDoc = doc(collection(db, "calls"));
-    const offerCandidates = collection(db, callDoc.id, "offerCandidates"); // here
-    const answerCandidates = collection(db, callDoc.id, "answerCandidates"); // here
+    const offerCandidates = collection(db, "calls", callDoc.id, "offerCandidates");
+    const answerCandidates = collection(db, "calls", callDoc.id, "answerCandidates");
 
     callInput.current.value = callDoc.id;
 
@@ -130,8 +130,8 @@ export function App() {
 
     const callId = callInput.current.value;
     const callDoc = doc(db, "calls", callId);
-    const answerCandidates = collection(db, callDoc.id, "answerCandidates");
-    const offerCandidates = collection(db, callDoc.id, "offerCandidates");
+    const answerCandidates = collection(db, "calls", callDoc.id, "answerCandidates");
+    const offerCandidates = collection(db, "calls", callDoc.id, "offerCandidates");
 
     pc.onicecandidate = (event) => {
       event.candidate && addDoc(answerCandidates, event.candidate.toJSON());
@@ -155,13 +155,17 @@ export function App() {
 
     onSnapshot(offerCandidates, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
-        console.log(change);
+        console.log("change", change);
         if (change.type === "added") {
           let data = change.doc.data();
           pc.addIceCandidate(new RTCIceCandidate(data));
         }
       });
     });
+  };
+
+  const handleHangupClick = async () => {
+    await pc.close();
   };
 
   return (
@@ -197,7 +201,7 @@ export function App() {
 
       <h2>4. Hangup</h2>
 
-      <button id="hangupButton" disabled ref={hangupButton}>
+      <button id="hangupButton" disabled ref={hangupButton} onClick={handleHangupClick}>
         Hangup
       </button>
     </>
