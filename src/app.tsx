@@ -60,6 +60,7 @@ export function App() {
     };
 
     clientVideo.current.srcObject = localStream;
+
     remoteVideo.current.srcObject = remoteStream;
 
     callButton.current.disabled = false;
@@ -170,7 +171,7 @@ export function App() {
       <div class="videos">
         <span>
           <h3>Local Stream</h3>
-          <video id="webcamVideo" ref={clientVideo} autoPlay playsInline></video>
+          <video id="clientVideo" ref={clientVideo} autoPlay playsInline muted></video>
         </span>
         <span>
           <h3>Remote Stream</h3>
