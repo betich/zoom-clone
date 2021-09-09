@@ -1,3 +1,3 @@
 # zoom clone
 
-status: currently not working
+status: working now :p
