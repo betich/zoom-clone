@@ -1,3 +1,5 @@
+@import "utils/_base.scss";
+
 html,
 body {
   height: 100%;
@@ -17,5 +19,5 @@ body {
 }
 
 .link {
-  color: #064253;
+  color: $primary;
 }
