@@ -16,21 +16,6 @@ body {
   box-sizing: border-box;
 }
 
-.video {
-  transform: rotateY(180deg);
-  -webkit-transform: rotateY(180deg);
-  -moz-transform: rotateY(180deg);
-}
-
-#app {
-  height: 100%;
-  text-align: center;
-  background-color: #673ab8;
-  color: #064253;
-  font-size: 1.5em;
-  padding-top: 100px;
-}
-
 .link {
   color: #064253;
 }

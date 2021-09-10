@@ -7,15 +7,18 @@ body {
   margin: 80px 10px;
 }
 
-video {
-  width: 40vw;
-  height: 30vw;
-  margin: 2rem;
-  background: #2c3e50;
-}
-
 .videos {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.video {
+  transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
+  -moz-transform: rotateY(180deg);
+  width: 40vw;
+  height: 30vw;
+  margin: 2rem;
+  background: #2c3e50;
 }
