@@ -16,6 +16,12 @@ body {
   box-sizing: border-box;
 }
 
+.video {
+  transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
+  -moz-transform: rotateY(180deg);
+}
+
 #app {
   height: 100%;
   text-align: center;

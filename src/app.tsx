@@ -175,11 +175,11 @@ export function App() {
       <div class="videos">
         <span>
           <h3>Local Stream</h3>
-          <video id="clientVideo" ref={clientVideo} autoPlay playsInline muted></video>
+          <video id="clientVideo" className="video" ref={clientVideo} autoPlay playsInline muted></video>
         </span>
         <span>
           <h3>Remote Stream</h3>
-          <video id="remoteVideo" ref={remoteVideo} autoPlay playsInline></video>
+          <video id="remoteVideo" className="video" ref={remoteVideo} autoPlay playsInline></video>
         </span>
       </div>
 
