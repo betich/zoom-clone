@@ -1,8 +1,4 @@
 {
-  "baseUrl": ".",
-  "paths": {
-    "@styles/*": ["src/styles/*"],
-  },
   "compilerOptions": {
     "target": "ESNext",
     "useDefineForClassFields": true,

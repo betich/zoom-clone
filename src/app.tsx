@@ -1,4 +1,4 @@
-import "@styles/home.scss";
+import "./styles/home.scss";
 import { useEffect, useRef, useState } from "preact/compat";
 import { initFirebase } from "./utils/firebase";
 import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, onSnapshot } from "firebase/firestore";
