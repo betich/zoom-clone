@@ -15,7 +15,8 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-let pc = new RTCPeerConnection(servers);
+let pc: RTCPeerConnection
+let dc: RTCDataChannel | null
 
 export function App() {
   const clientVideo = useRef<never | HTMLVideoElement>(null);
@@ -24,48 +25,14 @@ export function App() {
   const answerButton = useRef<never | HTMLButtonElement>(null);
   const webcamButton = useRef<never | HTMLButtonElement>(null);
   const hangupButton = useRef<never | HTMLButtonElement>(null);
+  const CBButton = useRef<never | HTMLButtonElement>(null);
   const callInput = useRef<never | HTMLInputElement>(null);
 
   // 1. Setup media sources
   const handleWebcamClick = async () => {
-    if (
-      !clientVideo?.current ||
-      !remoteVideo?.current ||
-      !callButton?.current ||
-      !answerButton?.current ||
-      !webcamButton?.current
-    ) {
-      console.log("returned bc something involving refs");
-      return;
-    }
 
-    let localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    let remoteStream = new MediaStream();
+    setUpConnection()
 
-    if (!localStream || !remoteStream) {
-      console.log("returned bc something involving streams😁 ");
-      return;
-    }
-
-    // Push tracks from local stream to peer connection
-    localStream.getTracks().forEach((track) => {
-      pc.addTrack(track, localStream);
-    });
-
-    // Pull tracks from remote stream, add to video stream
-    pc.ontrack = (event) => {
-      event.streams[0].getTracks().forEach((track) => {
-        remoteStream.addTrack(track);
-      });
-    };
-
-    clientVideo.current.srcObject = localStream;
-
-    remoteVideo.current.srcObject = remoteStream;
-
-    callButton.current.disabled = false;
-    answerButton.current.disabled = false;
-    webcamButton.current.disabled = true;
   };
 
   // 2. Create an offer
@@ -88,6 +55,11 @@ export function App() {
     pc.onicecandidate = (event) => {
       event.candidate && addDoc(offerCandidates, event.candidate.toJSON());
     };
+
+    dc = pc.createDataChannel("MessageChannel")
+
+    dc.onclose = handleStatusChange
+    dc.onopen = handleStatusChange
 
     // Create offer
     const offerDescription = await pc.createOffer();
@@ -118,8 +90,10 @@ export function App() {
         }
       });
     });
-
-    hangupButton.current.disabled = false;
+    
+    if(CBButton.current) {
+      CBButton.current.disabled = false;
+    }
   };
 
   const handleAnswerClick = async () => {
@@ -165,8 +139,91 @@ export function App() {
   };
 
   const handleHangupClick = async () => {
-    await pc.close();
+    closeConnection();
   };
+
+  const closeConnection = () => {
+    // close every old thing
+    pc.close()
+    dc?.close()
+    if(hangupButton?.current) {
+      hangupButton.current.disabled = true;
+    }
+
+    // setup new connection
+    setUpConnection()
+  }
+
+  const setUpConnection = async () => {
+    let remoteStream = new MediaStream();
+    let localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+    pc = createPeer()
+    dc = null
+
+    pc.ontrack = (ev: RTCTrackEvent) => {
+      ev.streams[0].getTracks().forEach((track) => {
+        remoteStream.addTrack(track)
+      })
+    }
+
+    localStream.getTracks().forEach((track) => {
+      pc.addTrack(track, localStream);
+    })
+    
+    if (
+      !clientVideo?.current ||
+      !remoteVideo?.current ||
+      !callButton?.current ||
+      !answerButton?.current ||
+      !webcamButton?.current
+    ) {
+      console.log("returned bc something involving refs");
+      return;
+    }
+
+    clientVideo.current.srcObject = localStream;
+    remoteVideo.current.srcObject = remoteStream;
+    
+    callButton.current.disabled = false;
+    answerButton.current.disabled = false;
+    webcamButton.current.disabled = true;
+  }
+
+  const createPeer = () => {
+    const peer = new RTCPeerConnection(servers);
+    
+    peer.ondatachannel = (ev) => {
+      dc = ev.channel
+
+      dc.onclose = handleStatusChange
+      dc.onopen = handleStatusChange
+    }
+
+    return peer;
+  }
+
+  const handleStatusChange = () => {
+    const readyState = dc?.readyState;
+
+    switch(readyState) {
+      case 'closed':
+        closeConnection();
+        break;
+      case 'open':
+        if (!hangupButton?.current || !callInput?.current || !CBButton?.current) break;
+        hangupButton.current.disabled = false;
+        CBButton.current.disabled = true;
+        callInput.current.value = ''
+        break;
+    }
+    console.log('[Data Channel] Status : ', readyState)
+  }
+
+  const handleCBButtonClick = () => {
+    if(!callInput?.current) return;
+    navigator.clipboard.writeText(callInput.current.value)
+  }
 
   return (
     <>
@@ -197,6 +254,10 @@ export function App() {
       <input id="callInput" ref={callInput} />
       <button id="answerButton" onClick={handleAnswerClick} disabled ref={answerButton}>
         Answer
+      </button>
+      <br />
+      <button id="CBButton" onClick={handleCBButtonClick} disabled ref={CBButton}>
+        Copy to clipboard
       </button>
 
       <h2>4. Hangup</h2>
