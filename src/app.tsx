@@ -15,8 +15,8 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-let pc: RTCPeerConnection
-let dc: RTCDataChannel | null
+let pc: RTCPeerConnection;
+let dc: RTCDataChannel | null;
 
 export function App() {
   const clientVideo = useRef<never | HTMLVideoElement>(null);
@@ -30,9 +30,7 @@ export function App() {
 
   // 1. Setup media sources
   const handleWebcamClick = async () => {
-
-    setUpConnection()
-
+    setUpConnection();
   };
 
   // 2. Create an offer
@@ -43,7 +41,6 @@ export function App() {
     }
 
     // Reference Firestore collections for signaling
-    /* idk how to implement this (subcollections) */
 
     const callDoc = doc(collection(db, "calls"));
     const offerCandidates = collection(db, "calls", callDoc.id, "offerCandidates");
@@ -56,10 +53,10 @@ export function App() {
       event.candidate && addDoc(offerCandidates, event.candidate.toJSON());
     };
 
-    dc = pc.createDataChannel("MessageChannel")
+    dc = pc.createDataChannel("MessageChannel");
 
-    dc.onclose = handleStatusChange
-    dc.onopen = handleStatusChange
+    dc.onclose = handleStatusChange;
+    dc.onopen = handleStatusChange;
 
     // Create offer
     const offerDescription = await pc.createOffer();
@@ -90,8 +87,8 @@ export function App() {
         }
       });
     });
-    
-    if(CBButton.current) {
+
+    if (CBButton.current) {
       CBButton.current.disabled = false;
     }
   };
@@ -144,33 +141,33 @@ export function App() {
 
   const closeConnection = () => {
     // close every old thing
-    pc.close()
-    dc?.close()
-    if(hangupButton?.current) {
+    pc.close();
+    dc?.close();
+    if (hangupButton?.current) {
       hangupButton.current.disabled = true;
     }
 
     // setup new connection
-    setUpConnection()
-  }
+    setUpConnection();
+  };
 
   const setUpConnection = async () => {
     let remoteStream = new MediaStream();
     let localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-    pc = createPeer()
-    dc = null
+    pc = createPeer();
+    dc = null;
 
     pc.ontrack = (ev: RTCTrackEvent) => {
       ev.streams[0].getTracks().forEach((track) => {
-        remoteStream.addTrack(track)
-      })
-    }
+        remoteStream.addTrack(track);
+      });
+    };
 
     localStream.getTracks().forEach((track) => {
       pc.addTrack(track, localStream);
-    })
-    
+    });
+
     if (
       !clientVideo?.current ||
       !remoteVideo?.current ||
@@ -184,46 +181,46 @@ export function App() {
 
     clientVideo.current.srcObject = localStream;
     remoteVideo.current.srcObject = remoteStream;
-    
+
     callButton.current.disabled = false;
     answerButton.current.disabled = false;
     webcamButton.current.disabled = true;
-  }
+  };
 
   const createPeer = () => {
     const peer = new RTCPeerConnection(servers);
-    
-    peer.ondatachannel = (ev) => {
-      dc = ev.channel
 
-      dc.onclose = handleStatusChange
-      dc.onopen = handleStatusChange
-    }
+    peer.ondatachannel = (ev) => {
+      dc = ev.channel;
+
+      dc.onclose = handleStatusChange;
+      dc.onopen = handleStatusChange;
+    };
 
     return peer;
-  }
+  };
 
   const handleStatusChange = () => {
     const readyState = dc?.readyState;
 
-    switch(readyState) {
-      case 'closed':
+    switch (readyState) {
+      case "closed":
         closeConnection();
         break;
-      case 'open':
+      case "open":
         if (!hangupButton?.current || !callInput?.current || !CBButton?.current) break;
         hangupButton.current.disabled = false;
         CBButton.current.disabled = true;
-        callInput.current.value = ''
+        callInput.current.value = "";
         break;
     }
-    console.log('[Data Channel] Status : ', readyState)
-  }
+    console.log("[Data Channel] Status : ", readyState);
+  };
 
   const handleCBButtonClick = () => {
-    if(!callInput?.current) return;
-    navigator.clipboard.writeText(callInput.current.value)
-  }
+    if (!callInput?.current) return;
+    navigator.clipboard.writeText(callInput.current.value);
+  };
 
   return (
     <>
