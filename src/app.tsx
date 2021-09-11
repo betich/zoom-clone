@@ -6,8 +6,8 @@ import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, onSna
 const firebaseApp = initFirebase();
 const db = getFirestore(firebaseApp);
 
-const servers = {
-  iceServers: [
+/*
+iceServers: [
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
     { urls: "stun:stun.stunprotocol.org:3478" },
@@ -34,6 +34,22 @@ const servers = {
       credential: "homeo",
       username: "homeo",
     },
+    {
+      urls: ["turn:turn.anyfirewall.com:443?transport=tcp"],
+      credential: "webrtc",
+      username: "webrtc",
+    },
+    {
+      urls: ["turn:13.250.13.83:3478?transport=udp"],
+      username: "YzYNCouZM1mhqhmseWk6",
+      credential: "YzYNCouZM1mhqhmseWk6",
+    },
+*/
+
+const servers = {
+  iceServers: [
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
     {
       urls: ["turn:turn.anyfirewall.com:443?transport=tcp"],
       credential: "webrtc",
