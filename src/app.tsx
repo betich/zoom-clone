@@ -132,6 +132,7 @@ export function App() {
       snapshot.docChanges().forEach((change) => {
         console.log("change", change);
         if (change.type === "added") {
+          console.log("added");
           let data = change.doc.data();
           pc.addIceCandidate(new RTCIceCandidate(data));
         }
@@ -222,7 +223,10 @@ export function App() {
   };
 
   const handleCBButtonClick = () => {
-    if (!callInput?.current) return;
+    if (!callInput?.current) {
+      console.log("returned bc something involving refs");
+      return;
+    }
     navigator.clipboard.writeText(callInput.current.value);
   };
 
