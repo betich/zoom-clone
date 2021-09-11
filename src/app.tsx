@@ -64,9 +64,6 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-let pc: RTCPeerConnection;
-let dc: RTCDataChannel | null;
-
 export function App() {
   const clientVideo = useRef<never | HTMLVideoElement>(null);
   const remoteVideo = useRef<never | HTMLVideoElement>(null);
@@ -76,6 +73,11 @@ export function App() {
   const hangupButton = useRef<never | HTMLButtonElement>(null);
   const CBButton = useRef<never | HTMLButtonElement>(null);
   const callInput = useRef<never | HTMLInputElement>(null);
+
+  const localStream = useRef<never | MediaStream>(null);
+  const remoteStream = useRef<never | MediaStream>(null);
+  const pc = useRef<RTCPeerConnection>();
+  const dc = useRef<RTCDataChannel | null>();
 
   // 1. Setup media sources
   const handleWebcamClick = async () => {
@@ -97,19 +99,21 @@ export function App() {
 
     callInput.current.value = callDoc.id;
 
+    if (!pc?.current) return;
+
     // Get candidates for caller, save to db
-    pc.onicecandidate = (event) => {
+    pc.current.onicecandidate = (event) => {
       event.candidate && addDoc(offerCandidates, event.candidate.toJSON());
     };
 
-    dc = pc.createDataChannel("MessageChannel");
+    dc.current = pc.current.createDataChannel("MessageChannel");
 
-    dc.onclose = handleStatusChange;
-    dc.onopen = handleStatusChange;
+    dc.current.onclose = handleStatusChange;
+    dc.current.onopen = handleStatusChange;
 
     // Create offer
-    const offerDescription = await pc.createOffer();
-    await pc.setLocalDescription(offerDescription);
+    const offerDescription = await pc.current.createOffer();
+    await pc.current.setLocalDescription(offerDescription);
 
     const offer = {
       sdp: offerDescription.sdp,
@@ -120,10 +124,11 @@ export function App() {
 
     // Listen for remote answer
     onSnapshot(callDoc, (snapshot) => {
+      if (!pc?.current) return;
       const data = snapshot.data();
-      if (!pc.currentRemoteDescription && data?.answer) {
+      if (!pc.current.currentRemoteDescription && data?.answer) {
         const answerDescription = new RTCSessionDescription(data.answer);
-        pc.setRemoteDescription(answerDescription);
+        pc.current.setRemoteDescription(answerDescription);
       }
     });
 
@@ -131,8 +136,9 @@ export function App() {
     onSnapshot(answerCandidates, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
+          if (!pc?.current) return;
           const candidate = new RTCIceCandidate(change.doc.data());
-          pc.addIceCandidate(candidate);
+          pc.current.addIceCandidate(candidate);
         }
       });
     });
@@ -153,7 +159,8 @@ export function App() {
     const answerCandidates = collection(db, "calls", callDoc.id, "answerCandidates");
     const offerCandidates = collection(db, "calls", callDoc.id, "offerCandidates");
 
-    pc.onicecandidate = (event) => {
+    if (!pc?.current) return;
+    pc.current.onicecandidate = (event) => {
       event.candidate && addDoc(answerCandidates, event.candidate.toJSON());
     };
 
@@ -165,10 +172,10 @@ export function App() {
     }
 
     const offerDescription = callData.offer;
-    await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
+    await pc.current.setRemoteDescription(new RTCSessionDescription(offerDescription));
 
-    const answerDescription = await pc.createAnswer();
-    await pc.setLocalDescription(answerDescription);
+    const answerDescription = await pc.current.createAnswer();
+    await pc.current.setLocalDescription(answerDescription);
 
     const answer = {
       type: answerDescription.type,
@@ -181,9 +188,10 @@ export function App() {
       snapshot.docChanges().forEach((change) => {
         console.log("change", change);
         if (change.type === "added") {
+          if (!pc?.current) return;
           console.log("added");
           let data = change.doc.data();
-          pc.addIceCandidate(new RTCIceCandidate(data));
+          pc.current.addIceCandidate(new RTCIceCandidate(data));
         }
       });
     });
@@ -195,8 +203,9 @@ export function App() {
 
   const closeConnection = () => {
     // close every old thing
-    pc.close();
-    dc?.close();
+    if (!pc?.current) return;
+    pc?.current.close();
+    dc?.current?.close();
     if (hangupButton?.current) {
       hangupButton.current.disabled = true;
     }
@@ -206,20 +215,26 @@ export function App() {
   };
 
   const setUpConnection = async () => {
-    let remoteStream = new MediaStream();
-    let localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    // todo change camera
+    // todo disable camera/mic
+    remoteStream.current = new MediaStream();
+    localStream.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-    pc = createPeer();
-    dc = null;
+    pc.current = createPeer();
+    dc.current = null;
 
-    pc.ontrack = (ev: RTCTrackEvent) => {
+    if (!pc?.current) return;
+
+    pc.current.ontrack = (ev: RTCTrackEvent) => {
       ev.streams[0].getTracks().forEach((track) => {
-        remoteStream.addTrack(track);
+        if (!remoteStream?.current) return;
+        remoteStream.current.addTrack(track);
       });
     };
 
-    localStream.getTracks().forEach((track) => {
-      pc.addTrack(track, localStream);
+    localStream.current.getTracks().forEach((track) => {
+      if (!localStream?.current || !pc?.current) return;
+      pc.current.addTrack(track, localStream.current);
     });
 
     if (
@@ -233,8 +248,8 @@ export function App() {
       return;
     }
 
-    clientVideo.current.srcObject = localStream;
-    remoteVideo.current.srcObject = remoteStream;
+    clientVideo.current.srcObject = localStream.current;
+    remoteVideo.current.srcObject = remoteStream.current;
 
     callButton.current.disabled = false;
     answerButton.current.disabled = false;
@@ -245,17 +260,17 @@ export function App() {
     const peer = new RTCPeerConnection(servers);
 
     peer.ondatachannel = (ev) => {
-      dc = ev.channel;
+      dc.current = ev.channel;
 
-      dc.onclose = handleStatusChange;
-      dc.onopen = handleStatusChange;
+      dc.current.onclose = handleStatusChange;
+      dc.current.onopen = handleStatusChange;
     };
 
     return peer;
   };
 
   const handleStatusChange = () => {
-    const readyState = dc?.readyState;
+    const readyState = dc.current?.readyState;
 
     switch (readyState) {
       case "closed":
