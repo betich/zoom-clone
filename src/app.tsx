@@ -9,7 +9,14 @@ const db = getFirestore(firebaseApp);
 const servers = {
   iceServers: [
     {
-      urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"],
+      urls: [
+        "stun:stun1.l.google.com:19302",
+        "stun:stun2.l.google.com:19302",
+        "stun:stun.stunprotocol.org:3478",
+        "stun:stun.sipnet.net:3478",
+        "stun:stun.ideasip.com:3478",
+        "stun:stun.iptel.org:3478",
+      ],
     },
   ],
   iceCandidatePoolSize: 10,
