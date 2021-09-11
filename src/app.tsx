@@ -110,7 +110,11 @@ export function App() {
 
     const callData = (await getDoc(callDoc)).data();
 
-    if (!callData) return;
+    if (!callData) {
+      console.log("no calldata");
+      return;
+    }
+
     const offerDescription = callData.offer;
     await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
 
