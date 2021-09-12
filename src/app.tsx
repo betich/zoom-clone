@@ -6,6 +6,15 @@ import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, onSna
 const firebaseApp = initFirebase();
 const db = getFirestore(firebaseApp);
 
+type MessageType = 'text' | 'file' | 'picture' | 'video'
+
+type MessageString = string
+
+interface MessageData {
+  type: MessageType
+  data: string
+}
+
 /*
 iceServers: [
     { urls: "stun:stun1.l.google.com:19302" },
