@@ -69,19 +69,67 @@ export function App() {
   const remoteVideo = useRef<never | HTMLVideoElement>(null);
   const callButton = useRef<never | HTMLButtonElement>(null);
   const answerButton = useRef<never | HTMLButtonElement>(null);
-  const webcamButton = useRef<never | HTMLButtonElement>(null);
   const hangupButton = useRef<never | HTMLButtonElement>(null);
   const CBButton = useRef<never | HTMLButtonElement>(null);
   const callInput = useRef<never | HTMLInputElement>(null);
 
   const localStream = useRef<never | MediaStream>(null);
   const remoteStream = useRef<never | MediaStream>(null);
+  const videoSender = useRef<RTCRtpSender>();
+  const audioSender = useRef<RTCRtpSender>();
   const pc = useRef<RTCPeerConnection>();
   const dc = useRef<RTCDataChannel | null>();
+  const devices = useRef<MediaDeviceInfo[]>();
 
-  // 1. Setup media sources
-  const handleWebcamClick = async () => {
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [videoEnabled, setVideoEnabled] = useState(false);
+
+  useEffect(() => {
     setUpConnection();
+  }, []);
+
+  useEffect(() => {
+    setAudioTrack(audioEnabled);
+  }, [audioEnabled]);
+
+  useEffect(() => {
+    setVideoTrack(videoEnabled);
+  }, [videoEnabled]);
+
+  const setAudioTrack = (flag: boolean) => {
+    if (!localStream?.current) {
+      console.log("returned bc something involving refs 1");
+      return;
+    }
+
+    localStream.current.getAudioTracks().forEach((track) => {
+      track.enabled = flag;
+    });
+  };
+
+  const setVideoTrack = async (flag: boolean) => {
+    if (!localStream?.current || !clientVideo?.current) {
+      return;
+    }
+    // todo disable camera doesn't work
+
+    if (flag) {
+      // enable
+      localStream.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      clientVideo.current.srcObject = localStream.current;
+      setAudioTrack(audioEnabled);
+    } else {
+      // disable
+      localStream.current.getVideoTracks().forEach((track) => {
+        track.stop();
+      });
+      clientVideo.current.srcObject = null;
+    }
+
+    localStream.current.getTracks().forEach((track) => {
+      if (!videoSender?.current) return;
+      videoSender.current.replaceTrack(track);
+    });
   };
 
   // 2. Create an offer
@@ -214,48 +262,6 @@ export function App() {
     setUpConnection();
   };
 
-  const setUpConnection = async () => {
-    // todo change camera
-    // todo disable camera/mic
-    remoteStream.current = new MediaStream();
-    localStream.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
-    pc.current = createPeer();
-    dc.current = null;
-
-    if (!pc?.current) return;
-
-    pc.current.ontrack = (ev: RTCTrackEvent) => {
-      ev.streams[0].getTracks().forEach((track) => {
-        if (!remoteStream?.current) return;
-        remoteStream.current.addTrack(track);
-      });
-    };
-
-    localStream.current.getTracks().forEach((track) => {
-      if (!localStream?.current || !pc?.current) return;
-      pc.current.addTrack(track, localStream.current);
-    });
-
-    if (
-      !clientVideo?.current ||
-      !remoteVideo?.current ||
-      !callButton?.current ||
-      !answerButton?.current ||
-      !webcamButton?.current
-    ) {
-      console.log("returned bc something involving refs");
-      return;
-    }
-
-    clientVideo.current.srcObject = localStream.current;
-    remoteVideo.current.srcObject = remoteStream.current;
-
-    callButton.current.disabled = false;
-    answerButton.current.disabled = false;
-    webcamButton.current.disabled = true;
-  };
-
   const createPeer = () => {
     const peer = new RTCPeerConnection(servers);
 
@@ -267,6 +273,49 @@ export function App() {
     };
 
     return peer;
+  };
+
+  const setUpConnection = async () => {
+    // todo change camera
+    // todo disable camera/mic
+    if (!clientVideo?.current || !remoteVideo?.current || !callButton?.current || !answerButton?.current) {
+      console.log("returned bc something involving refs");
+      return;
+    }
+
+    remoteStream.current = new MediaStream();
+    localStream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // todo mute video doesn't work
+
+    setAudioEnabled(true);
+    setVideoEnabled(false);
+
+    devices.current = await navigator.mediaDevices.enumerateDevices();
+
+    pc.current = createPeer();
+    dc.current = null;
+
+    pc.current.ontrack = (ev: RTCTrackEvent) => {
+      ev.streams[0].getTracks().forEach((track) => {
+        if (!remoteStream?.current) return;
+        remoteStream.current.addTrack(track);
+      });
+    };
+
+    localStream.current.getAudioTracks().forEach((track) => {
+      if (!localStream?.current || !pc?.current) return;
+      videoSender.current = pc.current.addTrack(track, localStream.current);
+    });
+    localStream.current.getVideoTracks().forEach((track) => {
+      if (!localStream?.current || !pc?.current) return;
+      audioSender.current = pc.current.addTrack(track, localStream.current);
+    });
+
+    clientVideo.current.srcObject = null;
+    remoteVideo.current.srcObject = remoteStream.current;
+
+    callButton.current.disabled = false;
+    answerButton.current.disabled = false;
   };
 
   const handleStatusChange = () => {
@@ -294,6 +343,14 @@ export function App() {
     navigator.clipboard.writeText(callInput.current.value);
   };
 
+  const handleToggleAudio = () => {
+    setAudioEnabled(!audioEnabled);
+  };
+
+  const handleToggleVideo = () => {
+    setVideoEnabled(!videoEnabled);
+  };
+
   return (
     <>
       <h1>Zoom Clone</h1>
@@ -301,17 +358,23 @@ export function App() {
       <div class="videos">
         <span>
           <h3>Local Stream</h3>
-          <video id="clientVideo" className="video" ref={clientVideo} autoPlay playsInline muted></video>
+          <div className="video-container">
+            <video id="clientVideo" className="video" ref={clientVideo} autoPlay playsInline muted></video>
+            <div className="video-buttons">
+              <button onClick={handleToggleAudio}>{audioEnabled ? "Mute" : "Unmute"}</button>
+              <button onClick={handleToggleVideo}>{videoEnabled ? "Disable" : "Enable"} Camera</button>
+              <button disabled={!videoEnabled}>Change Camera</button>
+            </div>
+          </div>
         </span>
         <span>
           <h3>Remote Stream</h3>
-          <video id="remoteVideo" className="video" ref={remoteVideo} autoPlay playsInline></video>
+          <div className="video-container">
+            <video id="remoteVideo" className="video" ref={remoteVideo} autoPlay playsInline></video>
+          </div>
         </span>
       </div>
 
-      <button id="webcamButton" onClick={handleWebcamClick} ref={webcamButton}>
-        Start webcam
-      </button>
       <h2>2. Create a new Call</h2>
       <button id="callButton" onClick={handleCallClick} disabled ref={callButton}>
         Create Call (offer)
