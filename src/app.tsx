@@ -110,6 +110,7 @@ export function App() {
 
     dc.current.onclose = handleStatusChange;
     dc.current.onopen = handleStatusChange;
+    dc.current.onmessage = handleMessage;
 
     // Create offer
     const offerDescription = await pc.current.createOffer();
@@ -264,6 +265,7 @@ export function App() {
 
       dc.current.onclose = handleStatusChange;
       dc.current.onopen = handleStatusChange;
+      dc.current.onmessage = handleMessage;
     };
 
     return peer;
@@ -293,6 +295,25 @@ export function App() {
     }
     navigator.clipboard.writeText(callInput.current.value);
   };
+
+  const handleMessage = (ev: MessageEvent<MessageString>) => {
+
+    const {type, data} = JSON.parse(ev.data);
+
+    console.log({type, data});
+
+  };
+
+  const sendMessage = () => {
+
+    const data: MessageData = {
+      type: 'text',
+      // TODO: Get data from chat box
+      data: 'Test from the sky.'
+    }
+
+    dc.current?.send(JSON.stringify(data));
+  }
 
   return (
     <>
