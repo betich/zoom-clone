@@ -107,29 +107,16 @@ export function App() {
     });
   };
 
-  const setVideoTrack = async (flag: boolean) => {
+  const setVideoTrack = (flag: boolean) => {
     if (!localStream?.current || !clientVideo?.current) {
+      console.log("returned bc something involving refs 2");
       return;
     }
-    // todo disable camera doesn't work
 
-    if (flag) {
-      // enable
-      localStream.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      clientVideo.current.srcObject = localStream.current;
-      setAudioTrack(audioEnabled);
-    } else {
-      // disable
-      localStream.current.getVideoTracks().forEach((track) => {
-        track.stop();
-      });
-      clientVideo.current.srcObject = null;
-    }
+    localStream.current.getVideoTracks().forEach((track) => {
+      track.enabled = flag;
+    })
 
-    localStream.current.getTracks().forEach((track) => {
-      if (!videoSender?.current) return;
-      videoSender.current.replaceTrack(track);
-    });
   };
 
   // 2. Create an offer
@@ -284,11 +271,17 @@ export function App() {
     }
 
     remoteStream.current = new MediaStream();
-    localStream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
-    // todo mute video doesn't work
+    if(!localStream?.current) {
+      localStream.current = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    }
 
-    setAudioEnabled(true);
-    setVideoEnabled(false);
+    // start with disable cam
+    // doesn't work for some reason maybe it's callback ???
+    // setVideoEnabled(false);
+     
+    localStream.current.getVideoTracks()[0].enabled = false;
+
+    // todo mute video doesn't work
 
     devices.current = await navigator.mediaDevices.enumerateDevices();
 
@@ -311,7 +304,7 @@ export function App() {
       audioSender.current = pc.current.addTrack(track, localStream.current);
     });
 
-    clientVideo.current.srcObject = null;
+    clientVideo.current.srcObject = localStream.current;
     remoteVideo.current.srcObject = remoteStream.current;
 
     callButton.current.disabled = false;
@@ -396,6 +389,9 @@ export function App() {
 
       <button id="hangupButton" disabled ref={hangupButton} onClick={handleHangupClick}>
         Hangup
+      </button>
+      <button id="dbg" onClick={() => {console.log(videoSender.current, localStream.current, pc.current)}}>
+        bdg
       </button>
     </>
   );
