@@ -6,6 +6,23 @@ import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, onSna
 const firebaseApp = initFirebase();
 const db = getFirestore(firebaseApp);
 
+type MessageType = "text" | "file" | "picture" | "video" | "action";
+
+type MessageAction = "mute" | "unmute" | "turnoncam" | "turnoffcam";
+
+type MappedMessage<T extends MessageType> = T extends "text"
+  ? string
+  : T extends "file" | "video" | "picture"
+  ? Blob
+  : T extends "action"
+  ? MessageAction
+  : never;
+
+type MessageData<T extends MessageType> = {
+  type: T;
+  data: MappedMessage<T>;
+};
+
 /*
 iceServers: [
     { urls: "stun:stun1.l.google.com:19302" },
@@ -107,16 +124,29 @@ export function App() {
 
       localStream.current = new MediaStream([...localStream.current.getVideoTracks(), audioStream.getAudioTracks()[0]]);
 
-      clientVideo.current.srcObject = localStream.current;
       if (audioSender?.current) {
         audioSender.current.replaceTrack(localStream.current.getAudioTracks()[0]);
       }
+
+      const data: MessageData<"action"> = {
+        type: "action",
+        data: "unmute",
+      };
+
+      clientVideo.current.srcObject = localStream.current;
+      sendMessage(data);
     } else {
       if (localStream?.current) {
         localStream.current.getAudioTracks().forEach((track) => {
           track.stop();
         });
       }
+      const data: MessageData<"action"> = {
+        type: "action",
+        data: "mute",
+      };
+
+      sendMessage(data);
     }
   };
 
@@ -133,8 +163,15 @@ export function App() {
 
       localStream.current = new MediaStream([videoStream.getVideoTracks()[0], ...localStream.current.getAudioTracks()]);
 
+      const data: MessageData<"action"> = {
+        type: "action",
+        data: "turnoncam",
+      };
+
       clientVideo.current.srcObject = localStream.current;
-      console.log(videoSender.current);
+      sendMessage(data);
+      clientVideo.current.style.display = "";
+
       if (videoSender?.current) {
         videoSender.current.replaceTrack(localStream.current.getVideoTracks()[0]);
       }
@@ -144,6 +181,14 @@ export function App() {
           track.stop();
         });
       }
+
+      const data: MessageData<"action"> = {
+        type: "action",
+        data: "turnoffcam",
+      };
+
+      sendMessage(data);
+      clientVideo.current.style.display = "none";
     }
   };
 
@@ -173,6 +218,7 @@ export function App() {
 
     dc.current.onclose = handleStatusChange;
     dc.current.onopen = handleStatusChange;
+    dc.current.onmessage = handleMessage;
 
     // Create offer
     const offerDescription = await pc.current.createOffer();
@@ -285,6 +331,7 @@ export function App() {
 
       dc.current.onclose = handleStatusChange;
       dc.current.onopen = handleStatusChange;
+      dc.current.onmessage = handleMessage;
     };
 
     peer.ontrack = (ev: RTCTrackEvent) => {
@@ -364,6 +411,56 @@ export function App() {
     setVideoEnabled(!videoEnabled);
   };
 
+  const sendMessage = (data: MessageData<MessageType>) => {
+    console.log("sending", JSON.stringify(data));
+    dc.current?.send(JSON.stringify(data));
+  };
+
+  const handleMessage = (ev: MessageEvent<string>) => {
+    const _ev = JSON.parse(ev.data) as MessageData<MessageType>;
+
+    switch (_ev.type) {
+      case "action":
+        console.log("received action");
+        const _ActionEvent = _ev as MessageData<"action">;
+        handleActionMessage(_ActionEvent);
+      case "file":
+        break;
+      case "picture":
+        break;
+      case "text":
+        break;
+      case "video":
+        break;
+    }
+  };
+
+  const handleActionMessage = (ev: MessageData<"action">) => {
+    const action = ev.data;
+    switch (action) {
+      case "mute":
+        break;
+      case "unmute":
+        break;
+      case "turnoncam":
+        if (!remoteVideo?.current) return;
+        remoteVideo.current.style.display = "";
+        break;
+      case "turnoffcam":
+        if (!remoteVideo?.current) return;
+        remoteVideo.current.style.display = "none";
+        break;
+    }
+  };
+
+  const sendText = (message: string) => {
+    const data: MessageData<"text"> = {
+      type: "text",
+      data: message,
+    };
+    sendMessage(data);
+  };
+
   return (
     <>
       <h1>Zoom Clone</h1>
@@ -372,7 +469,9 @@ export function App() {
         <span>
           <h3>Local Stream</h3>
           <div className="video-container">
-            <video id="clientVideo" className="video" ref={clientVideo} autoPlay playsInline muted></video>
+            <div className="wrapper">
+              <video id="clientVideo" className="video" ref={clientVideo} autoPlay playsInline muted></video>
+            </div>
             <div className="video-buttons">
               <button onClick={handleToggleAudio}>{audioEnabled ? "Mute" : "Unmute"}</button>
               <button onClick={handleToggleVideo}>{videoEnabled ? "Disable" : "Enable"} Camera</button>
@@ -383,7 +482,9 @@ export function App() {
         <span>
           <h3>Remote Stream</h3>
           <div className="video-container">
-            <video id="remoteVideo" className="video" ref={remoteVideo} autoPlay playsInline></video>
+            <div className="wrapper">
+              <video id="remoteVideo" className="video" ref={remoteVideo} autoPlay playsInline></video>
+            </div>
           </div>
         </span>
       </div>
