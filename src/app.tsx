@@ -81,42 +81,70 @@ export function App() {
   const dc = useRef<RTCDataChannel | null>();
   const devices = useRef<MediaDeviceInfo[]>();
 
-  const [audioEnabled, setAudioEnabled] = useState(false);
-  const [videoEnabled, setVideoEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [videoEnabled, setVideoEnabled] = useState(true);
 
   useEffect(() => {
     setUpConnection();
   }, []);
 
   useEffect(() => {
-    setAudioTrack(audioEnabled);
+    setAudioTrack();
   }, [audioEnabled]);
 
   useEffect(() => {
-    setVideoTrack(videoEnabled);
+    setVideoTrack();
   }, [videoEnabled]);
 
-  const setAudioTrack = (flag: boolean) => {
-    if (!localStream?.current) {
+  const setAudioTrack = async () => {
+    if (!clientVideo?.current || !localStream?.current) {
       console.log("returned bc something involving refs 1");
       return;
     }
 
-    localStream.current.getAudioTracks().forEach((track) => {
-      track.enabled = flag;
-    });
+    if (audioEnabled) {
+      const audioStream = await navigator.mediaDevices.getUserMedia({audio: true});
+  
+      localStream.current = new MediaStream([...localStream.current.getVideoTracks(), audioStream.getAudioTracks()[0]]);
+      
+      clientVideo.current.srcObject = localStream.current;      
+      if (audioSender?.current) {
+        audioSender.current.replaceTrack(localStream.current.getAudioTracks()[0]);
+      }
+    } else {
+      if (localStream?.current) {
+      localStream.current.getAudioTracks().forEach(track => {
+        track.stop();
+      })
+      }
+    }
   };
 
-  const setVideoTrack = (flag: boolean) => {
-    if (!localStream?.current || !clientVideo?.current) {
+  const setVideoTrack = async () => {
+    if (!clientVideo?.current || !localStream?.current) {
       console.log("returned bc something involving refs 2");
       return;
     }
 
-    localStream.current.getVideoTracks().forEach((track) => {
-      track.enabled = flag;
-    })
+    if (videoEnabled) {
+      const videoStream = await navigator.mediaDevices.getUserMedia({video: true});
 
+      console.log([videoStream.getVideoTracks()[0], ...localStream.current.getAudioTracks()])
+  
+      localStream.current = new MediaStream([videoStream.getVideoTracks()[0], ...localStream.current.getAudioTracks()]);
+      
+      clientVideo.current.srcObject = localStream.current;
+      console.log(videoSender.current)
+      if (videoSender?.current) {
+        videoSender.current.replaceTrack(localStream.current.getVideoTracks()[0]);
+      }
+    } else {
+      if (localStream?.current) {
+        localStream.current.getVideoTracks().forEach(track => {
+          track.stop();
+        })
+      }
+    }
   };
 
   // 2. Create an offer
@@ -258,6 +286,13 @@ export function App() {
       dc.current.onclose = handleStatusChange;
       dc.current.onopen = handleStatusChange;
     };
+    
+    peer.ontrack = (ev: RTCTrackEvent) => {
+      ev.streams[0].getTracks().forEach((track) => {
+        if (!remoteStream?.current) return;
+        remoteStream.current.addTrack(track);
+      });
+    };
 
     return peer;
   };
@@ -271,15 +306,7 @@ export function App() {
     }
 
     remoteStream.current = new MediaStream();
-    if(!localStream?.current) {
-      localStream.current = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-    }
-
-    // start with disable cam
-    // doesn't work for some reason maybe it's callback ???
-    // setVideoEnabled(false);
-     
-    localStream.current.getVideoTracks()[0].enabled = false;
+    localStream.current = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
 
     // todo mute video doesn't work
 
@@ -288,20 +315,13 @@ export function App() {
     pc.current = createPeer();
     dc.current = null;
 
-    pc.current.ontrack = (ev: RTCTrackEvent) => {
-      ev.streams[0].getTracks().forEach((track) => {
-        if (!remoteStream?.current) return;
-        remoteStream.current.addTrack(track);
-      });
-    };
-
     localStream.current.getAudioTracks().forEach((track) => {
       if (!localStream?.current || !pc?.current) return;
-      videoSender.current = pc.current.addTrack(track, localStream.current);
+      audioSender.current = pc.current.addTrack(track, localStream.current);
     });
     localStream.current.getVideoTracks().forEach((track) => {
       if (!localStream?.current || !pc?.current) return;
-      audioSender.current = pc.current.addTrack(track, localStream.current);
+      videoSender.current = pc.current.addTrack(track, localStream.current);
     });
 
     clientVideo.current.srcObject = localStream.current;
@@ -383,15 +403,12 @@ export function App() {
       <br />
       <button id="CBButton" onClick={handleCBButtonClick} disabled ref={CBButton}>
         Copy to clipboard
-      </button>
+      </button>   
 
       <h2>4. Hangup</h2>
 
       <button id="hangupButton" disabled ref={hangupButton} onClick={handleHangupClick}>
         Hangup
-      </button>
-      <button id="dbg" onClick={() => {console.log(videoSender.current, localStream.current, pc.current)}}>
-        bdg
       </button>
     </>
   );
